@@ -4,6 +4,7 @@
 	<title>HTML5b - Battle for Dream Island</title>
 	<meta name="description" content="An HTML5 port of the puzzle platformer in the world of Battle for Dream Island."/>
 	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 	<meta name="author" content="coppersalts">
 	<meta property="og:title" content="HTML5b">
 	<meta property="og:type" content="website">
@@ -15,105 +16,162 @@
 	<link rel="shortcut icon" type="image/x-icon" href="./visuals/blocks/b0001.svg" />
 	<link rel="stylesheet" href="style.css" type="text/css"/>
 	<script type="text/javascript" src="5b.js"></script>
+	<style>
+		html, body, #cnv {
+			touch-action: none !important;
+			user-select: none !important;
+			-webkit-user-select: none !important;
+		}
+
+		#touch-controls {
+			position: fixed;
+			bottom: 16px;
+			left: 16px;
+			right: 16px;
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-end;
+			pointer-events: none;
+			z-index: 999999;
+		}
+
+		.control-group {
+			display: flex;
+			gap: 12px;
+			pointer-events: auto;
+		}
+
+		.action-column {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-end;
+			gap: 10px;
+			pointer-events: auto;
+		}
+
+		.top-actions {
+			display: flex;
+			gap: 10px;
+		}
+
+		.ctrl-btn {
+			background: rgba(25, 25, 25, 0.7);
+			color: #ffffff;
+			border: 2px solid rgba(255, 255, 255, 0.85);
+			border-radius: 12px;
+			font-family: sans-serif;
+			font-weight: bold;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			touch-action: none;
+		}
+
+		.ctrl-btn.pressed {
+			background: rgba(255, 255, 255, 0.45);
+			transform: scale(0.94);
+		}
+
+		.arrow-btn { width: 66px; height: 66px; font-size: 28px; }
+		.small-btn { width: 52px; height: 46px; font-size: 18px; }
+		.space-btn { width: 114px; height: 62px; font-size: 18px; }
+	</style>
 </head>
 <body style="overflow:hidden;">
 <div id="center">
 	<div id="hide-contenteditable"><canvas width="960" height="540" id="cnv" contenteditable="false"></canvas></div>
 	<p class="bottomtext">An HTML5 port of Cary Huang's <a href="https://bfdi.tv/5b/">BFDIA 5b</a>. Explore is powered by <a href="https://5beam.zelo.dev/">Zelo101's 5beam</a>.</p>
 </div>
-	<script>
-  // 1. Function to dispatch synthetic keyboard events
-  function triggerKey(keyCode, key, code, type) {
-    const event = new KeyboardEvent(type, {
-      key: key,
-      code: code,
-      keyCode: keyCode,
-      which: keyCode,
-      bubbles: true,
-      cancelable: true
-    });
-    window.dispatchEvent(event);
-    document.dispatchEvent(event);
-  }
 
-  // 2. Bind buttons to specific keys
-  function bindButton(elementId, keyCode, key, code) {
-    const btn = document.getElementById(elementId);
+<div id="touch-controls">
+	<div class="control-group">
+		<button id="btn-left" class="ctrl-btn arrow-btn">&lt;</button>
+		<button id="btn-right" class="ctrl-btn arrow-btn">&gt;</button>
+	</div>
 
-    const press = (e) => {
-      e.preventDefault();
-      e.stopPropagation(); // Prevents tap from registering as a canvas click
-      btn.classList.add('pressed');
-      triggerKey(keyCode, key, code, 'keydown');
-    };
+	<div class="action-column">
+		<div class="top-actions">
+			<button id="btn-r" class="ctrl-btn small-btn">R</button>
+			<button id="btn-z" class="ctrl-btn small-btn">Z</button>
+		</div>
+		<button id="btn-space" class="ctrl-btn space-btn">SPACE</button>
+	</div>
+</div>
 
-    const release = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      btn.classList.remove('pressed');
-      triggerKey(keyCode, key, code, 'keyup');
-    };
+<script>
+	const canvas = document.getElementById('cnv');
 
-    // Touch support (allows holding left/right while tapping jump)
-    btn.addEventListener('touchstart', press, { passive: false });
-    btn.addEventListener('touchend', release, { passive: false });
-    btn.addEventListener('touchcancel', release, { passive: false });
+	// 1. Dispatch keyboard events for 5b.js
+	function triggerKey(keyCode, key, code, type) {
+		const event = new KeyboardEvent(type, {
+			key: key,
+			code: code,
+			keyCode: keyCode,
+			which: keyCode,
+			bubbles: true,
+			cancelable: true
+		});
+		window.dispatchEvent(event);
+		document.dispatchEvent(event);
+		if (canvas) canvas.dispatchEvent(event);
+	}
 
-    // Mouse support (for testing on desktop)
-    btn.addEventListener('mousedown', press);
-    btn.addEventListener('mouseup', release);
-    btn.addEventListener('mouseleave', release);
-  }
+	// 2. Bind on-screen buttons
+	function bindButton(id, keyCode, key, code) {
+		const btn = document.getElementById(id);
 
-  // Map all 5 buttons
-  bindButton('btn-left', 37, 'ArrowLeft', 'ArrowLeft');
-  bindButton('btn-right', 39, 'ArrowRight', 'ArrowRight');
-  bindButton('btn-r', 82, 'r', 'KeyR');
-  bindButton('btn-z', 90, 'z', 'KeyZ');
-  bindButton('btn-space', 32, ' ', 'Space');
+		const press = (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			btn.classList.add('pressed');
+			triggerKey(keyCode, key, code, 'keydown');
+		};
 
-  // 3. Ensure taps on the game canvas translate immediately into Left Clicks
-  window.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
+		const release = (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			btn.classList.remove('pressed');
+			triggerKey(keyCode, key, code, 'keyup');
+		};
 
-    canvas.addEventListener('touchstart', (e) => {
-      const touch = e.changedTouches[0];
-      const mouseDown = new MouseEvent('mousedown', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        button: 0, // 0 = Left Click
-        buttons: 1,
-        clientX: touch.clientX,
-        clientY: touch.clientY
-      });
-      canvas.dispatchEvent(mouseDown);
-    }, { passive: true });
+		btn.addEventListener('touchstart', press, { passive: false });
+		btn.addEventListener('touchend', release, { passive: false });
+		btn.addEventListener('touchcancel', release, { passive: false });
+		btn.addEventListener('mousedown', press);
+		btn.addEventListener('mouseup', release);
+	}
 
-    canvas.addEventListener('touchend', (e) => {
-      const touch = e.changedTouches[0];
-      const mouseUp = new MouseEvent('mouseup', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        button: 0,
-        buttons: 0,
-        clientX: touch.clientX,
-        clientY: touch.clientY
-      });
-      const clickEvent = new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        button: 0,
-        clientX: touch.clientX,
-        clientY: touch.clientY
-      });
-      canvas.dispatchEvent(mouseUp);
-      canvas.dispatchEvent(clickEvent);
-    }, { passive: true });
-  });
+	bindButton('btn-left', 37, 'ArrowLeft', 'ArrowLeft');
+	bindButton('btn-right', 39, 'ArrowRight', 'ArrowRight');
+	bindButton('btn-r', 82, 'r', 'KeyR');
+	bindButton('btn-z', 90, 'z', 'KeyZ');
+	bindButton('btn-space', 32, ' ', 'Space');
+
+	// 3. Translate canvas taps into Left Clicks (button: 0)
+	canvas.addEventListener('touchstart', (e) => {
+		e.preventDefault();
+		const touch = e.changedTouches[0];
+		canvas.dispatchEvent(new MouseEvent('mousemove', {
+			bubbles: true, view: window, clientX: touch.clientX, clientY: touch.clientY
+		}));
+		canvas.dispatchEvent(new MouseEvent('mousedown', {
+			bubbles: true, cancelable: true, view: window, button: 0, buttons: 1,
+			clientX: touch.clientX, clientY: touch.clientY
+		}));
+	}, { passive: false });
+
+	canvas.addEventListener('touchend', (e) => {
+		e.preventDefault();
+		const touch = e.changedTouches[0];
+		canvas.dispatchEvent(new MouseEvent('mouseup', {
+			bubbles: true, cancelable: true, view: window, button: 0, buttons: 0,
+			clientX: touch.clientX, clientY: touch.clientY
+		}));
+		canvas.dispatchEvent(new MouseEvent('click', {
+			bubbles: true, cancelable: true, view: window, button: 0,
+			clientX: touch.clientX, clientY: touch.clientY
+		}));
+	}, { passive: false });
 </script>
 </body>
 </html>
