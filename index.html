@@ -21,5 +21,99 @@
 	<div id="hide-contenteditable"><canvas width="960" height="540" id="cnv" contenteditable="false"></canvas></div>
 	<p class="bottomtext">An HTML5 port of Cary Huang's <a href="https://bfdi.tv/5b/">BFDIA 5b</a>. Explore is powered by <a href="https://5beam.zelo.dev/">Zelo101's 5beam</a>.</p>
 </div>
+	<script>
+  // 1. Function to dispatch synthetic keyboard events
+  function triggerKey(keyCode, key, code, type) {
+    const event = new KeyboardEvent(type, {
+      key: key,
+      code: code,
+      keyCode: keyCode,
+      which: keyCode,
+      bubbles: true,
+      cancelable: true
+    });
+    window.dispatchEvent(event);
+    document.dispatchEvent(event);
+  }
+
+  // 2. Bind buttons to specific keys
+  function bindButton(elementId, keyCode, key, code) {
+    const btn = document.getElementById(elementId);
+
+    const press = (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // Prevents tap from registering as a canvas click
+      btn.classList.add('pressed');
+      triggerKey(keyCode, key, code, 'keydown');
+    };
+
+    const release = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.remove('pressed');
+      triggerKey(keyCode, key, code, 'keyup');
+    };
+
+    // Touch support (allows holding left/right while tapping jump)
+    btn.addEventListener('touchstart', press, { passive: false });
+    btn.addEventListener('touchend', release, { passive: false });
+    btn.addEventListener('touchcancel', release, { passive: false });
+
+    // Mouse support (for testing on desktop)
+    btn.addEventListener('mousedown', press);
+    btn.addEventListener('mouseup', release);
+    btn.addEventListener('mouseleave', release);
+  }
+
+  // Map all 5 buttons
+  bindButton('btn-left', 37, 'ArrowLeft', 'ArrowLeft');
+  bindButton('btn-right', 39, 'ArrowRight', 'ArrowRight');
+  bindButton('btn-r', 82, 'r', 'KeyR');
+  bindButton('btn-z', 90, 'z', 'KeyZ');
+  bindButton('btn-space', 32, ' ', 'Space');
+
+  // 3. Ensure taps on the game canvas translate immediately into Left Clicks
+  window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    canvas.addEventListener('touchstart', (e) => {
+      const touch = e.changedTouches[0];
+      const mouseDown = new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0, // 0 = Left Click
+        buttons: 1,
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseDown);
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+      const touch = e.changedTouches[0];
+      const mouseUp = new MouseEvent('mouseup', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0,
+        buttons: 0,
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      const clickEvent = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0,
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseUp);
+      canvas.dispatchEvent(clickEvent);
+    }, { passive: true });
+  });
+</script>
 </body>
 </html>
