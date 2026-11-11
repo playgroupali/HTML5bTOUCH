@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>HTML5BTOUCH - Battle for Dream Island</title>
-	<meta name="description" content="An HTML5 port of the puzzle platformer in the world of Battle for Dream Island note that this was modified by playgroupali to support touch."/>
+	<title>HTML5b - Battle for Dream Island</title>
+	<meta name="description" content="An HTML5 port of the puzzle platformer in the world of Battle for Dream Island."/>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 	<meta name="author" content="coppersalts">
@@ -18,7 +18,7 @@
 	<script type="text/javascript" src="5b.js"></script>
 	<style>
 		html, body, #cnv {
-			touch-action: none !important;
+			touch-action: manipulation !important;
 			user-select: none !important;
 			-webkit-user-select: none !important;
 		}
@@ -55,7 +55,7 @@
 		}
 
 		.ctrl-btn {
-			background: rgba(25, 25, 25, 0.7);
+			background: rgba(25, 25, 25, 0.72);
 			color: #ffffff;
 			border: 2px solid rgba(255, 255, 255, 0.85);
 			border-radius: 12px;
@@ -65,6 +65,7 @@
 			align-items: center;
 			justify-content: center;
 			touch-action: none;
+			cursor: pointer;
 		}
 
 		.ctrl-btn.pressed {
@@ -80,31 +81,31 @@
 </head>
 <body style="overflow:hidden;">
 <div id="center">
-	<div id="hide-contenteditable"><canvas width="960" height="540" id="cnv" contenteditable="false"></canvas></div>
+	<div id="hide-contenteditable"><canvas width="960" height="540" id="cnv" tabindex="0" contenteditable="false"></canvas></div>
 	<p class="bottomtext">An HTML5 port of Cary Huang's <a href="https://bfdi.tv">BFDIA 5b</a>. Explore is powered by <a href="https://zelo.dev">Zelo101's 5beam</a>.</p>
 </div>
 
 <div id="touch-controls">
 	<div class="control-group">
-		<button id="btn-left" class="ctrl-btn arrow-btn">&lt;</button>
-		<button id="btn-right" class="ctrl-btn arrow-btn">&gt;</button>
+		<div id="btn-left" class="ctrl-btn arrow-btn">&lt;</div>
+		<div id="btn-right" class="ctrl-btn arrow-btn">&gt;</div>
 	</div>
 
 	<div class="action-column">
 		<div class="top-actions">
-			<button id="btn-enter" class="ctrl-btn enter-btn">ENTER</button>
-			<button id="btn-r" class="ctrl-btn small-btn">R</button>
-			<button id="btn-z" class="ctrl-btn small-btn">Z</button>
+			<div id="btn-enter" class="ctrl-btn enter-btn">ENTER</div>
+			<div id="btn-r" class="ctrl-btn small-btn">R</div>
+			<div id="btn-z" class="ctrl-btn small-btn">Z</div>
 		</div>
-		<button id="btn-space" class="ctrl-btn space-btn">SPACE</button>
+		<div id="btn-space" class="ctrl-btn space-btn">SPACE</div>
 	</div>
 </div>
 
 <script>
 	const canvas = document.getElementById('cnv');
 
-	// 1. Dispatch keyboard events for 5b.js
-	function triggerKey(keyCode, key, code, type) {
+	// 1. Create a compatible KeyboardEvent with forced keyCode and which getters
+	function createKeyEvent(type, keyCode, key, code) {
 		const event = new KeyboardEvent(type, {
 			key: key,
 			code: code,
@@ -113,9 +114,30 @@
 			bubbles: true,
 			cancelable: true
 		});
-		window.dispatchEvent(event);
-		document.dispatchEvent(event);
-		if (canvas) canvas.dispatchEvent(event);
+
+		Object.defineProperty(event, 'keyCode', { get: () => keyCode });
+		Object.defineProperty(event, 'which', { get: () => keyCode });
+		Object.defineProperty(event, 'key', { get: () => key });
+		Object.defineProperty(event, 'code', { get: () => code });
+
+		return event;
+	}
+
+	function triggerKey(keyCode, key, code, type) {
+		if (canvas) canvas.focus();
+
+		const winEvent = createKeyEvent(type, keyCode, key, code);
+		window.dispatchEvent(winEvent);
+		if (typeof window['on' + type] === 'function') window['on' + type](winEvent);
+
+		const docEvent = createKeyEvent(type, keyCode, key, code);
+		document.dispatchEvent(docEvent);
+		if (typeof document['on' + type] === 'function') document['on' + type](docEvent);
+
+		if (canvas) {
+			const cnvEvent = createKeyEvent(type, keyCode, key, code);
+			canvas.dispatchEvent(cnvEvent);
+		}
 	}
 
 	// 2. Bind on-screen buttons
@@ -176,16 +198,7 @@
 		}));
 	}, { passive: false });
 
-	// 4. Block double-tap zoom and pinch-to-zoom on all mobile browsers
-	let lastTouchEnd = 0;
-	document.addEventListener('touchend', (e) => {
-		const now = Date.now();
-		if (now - lastTouchEnd <= 300) {
-			e.preventDefault();
-		}
-		lastTouchEnd = now;
-	}, { passive: false });
-
+	// 4. Block pinch-to-zoom without interfering with taps
 	document.addEventListener('gesturestart', (e) => {
 		e.preventDefault();
 	});
