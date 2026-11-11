@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>HTML5bTOUCH - Battle for Dream Island</title>
+	<title>TOUCH5B - Battle for Dream Island</title>
 	<meta name="description" content="An HTML5 port of the puzzle platformer in the world of Battle for Dream Island."/>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
@@ -18,10 +18,10 @@
 
 	<!-- Capture 5b.js keyboard listeners directly before 5b.js loads -->
 	<script>
-		window._capturedKeyListeners = { keydown: [], keyup: [] };
+		window._capturedKeyListeners = { keydown: [], keypress: [], keyup: [] };
 		const origAddEventListener = EventTarget.prototype.addEventListener;
 		EventTarget.prototype.addEventListener = function(type, listener, options) {
-			if ((type === 'keydown' || type === 'keyup') && typeof listener === 'function') {
+			if ((type === 'keydown' || type === 'keypress' || type === 'keyup') && typeof listener === 'function') {
 				window._capturedKeyListeners[type].push({ target: this, fn: listener });
 			}
 			return origAddEventListener.call(this, type, listener, options);
@@ -79,10 +79,11 @@
 			justify-content: center;
 			touch-action: none;
 			cursor: pointer;
+			-webkit-tap-highlight-color: transparent;
 		}
 
 		.ctrl-btn.pressed {
-			background: rgba(255, 255, 255, 0.45);
+			background: rgba(255, 255, 255, 0.55);
 			transform: scale(0.94);
 		}
 
@@ -100,25 +101,54 @@
 
 <div id="touch-controls">
 	<div class="control-group">
-		<div id="btn-left" class="ctrl-btn arrow-btn">&lt;</div>
-		<div id="btn-right" class="ctrl-btn arrow-btn">&gt;</div>
+		<button type="button" id="btn-left" class="ctrl-btn arrow-btn"
+			ontouchstart="btnDown(event, this, 37, 'ArrowLeft', 'ArrowLeft')"
+			ontouchend="btnUp(event, this, 37, 'ArrowLeft', 'ArrowLeft')"
+			ontouchcancel="btnUp(event, this, 37, 'ArrowLeft', 'ArrowLeft')"
+			onmousedown="btnDown(event, this, 37, 'ArrowLeft', 'ArrowLeft')"
+			onmouseup="btnUp(event, this, 37, 'ArrowLeft', 'ArrowLeft')">&lt;</button>
+		<button type="button" id="btn-right" class="ctrl-btn arrow-btn"
+			ontouchstart="btnDown(event, this, 39, 'ArrowRight', 'ArrowRight')"
+			ontouchend="btnUp(event, this, 39, 'ArrowRight', 'ArrowRight')"
+			ontouchcancel="btnUp(event, this, 39, 'ArrowRight', 'ArrowRight')"
+			onmousedown="btnDown(event, this, 39, 'ArrowRight', 'ArrowRight')"
+			onmouseup="btnUp(event, this, 39, 'ArrowRight', 'ArrowRight')">&gt;</button>
 	</div>
 
 	<div class="action-column">
 		<div class="top-actions">
-			<div id="btn-enter" class="ctrl-btn enter-btn">ENTER</div>
-			<div id="btn-r" class="ctrl-btn small-btn">R</div>
-			<div id="btn-z" class="ctrl-btn small-btn">Z</div>
+			<button type="button" id="btn-enter" class="ctrl-btn enter-btn"
+				ontouchstart="btnDown(event, this, 13, 'Enter', 'Enter')"
+				ontouchend="btnUp(event, this, 13, 'Enter', 'Enter')"
+				ontouchcancel="btnUp(event, this, 13, 'Enter', 'Enter')"
+				onmousedown="btnDown(event, this, 13, 'Enter', 'Enter')"
+				onmouseup="btnUp(event, this, 13, 'Enter', 'Enter')">ENTER</button>
+			<button type="button" id="btn-r" class="ctrl-btn small-btn"
+				ontouchstart="btnDown(event, this, 82, 'r', 'KeyR')"
+				ontouchend="btnUp(event, this, 82, 'r', 'KeyR')"
+				ontouchcancel="btnUp(event, this, 82, 'r', 'KeyR')"
+				onmousedown="btnDown(event, this, 82, 'r', 'KeyR')"
+				onmouseup="btnUp(event, this, 82, 'r', 'KeyR')">R</button>
+			<button type="button" id="btn-z" class="ctrl-btn small-btn"
+				ontouchstart="btnDown(event, this, 90, 'z', 'KeyZ')"
+				ontouchend="btnUp(event, this, 90, 'z', 'KeyZ')"
+				ontouchcancel="btnUp(event, this, 90, 'z', 'KeyZ')"
+				onmousedown="btnDown(event, this, 90, 'z', 'KeyZ')"
+				onmouseup="btnUp(event, this, 90, 'z', 'KeyZ')">Z</button>
 		</div>
-		<div id="btn-space" class="ctrl-btn space-btn">SPACE</div>
+		<button type="button" id="btn-space" class="ctrl-btn space-btn"
+			ontouchstart="btnDown(event, this, 32, ' ', 'Space')"
+			ontouchend="btnUp(event, this, 32, ' ', 'Space')"
+			ontouchcancel="btnUp(event, this, 32, ' ', 'Space')"
+			onmousedown="btnDown(event, this, 32, ' ', 'Space')"
+			onmouseup="btnUp(event, this, 32, ' ', 'Space')">SPACE</button>
 	</div>
 </div>
 
 <script>
 	const canvas = document.getElementById('cnv');
 
-	// 1. Trigger captured listeners directly + dispatch standard events
-	function triggerKey(keyCode, key, code, type) {
+	function fireKey(keyCode, key, code, type) {
 		const fakeEvent = {
 			type: type,
 			key: key,
@@ -133,67 +163,60 @@
 			metaKey: false,
 			target: canvas || document.body,
 			currentTarget: window,
-			preventDefault: () => {},
-			stopPropagation: () => {}
+			preventDefault: function() {},
+			stopPropagation: function() {}
 		};
 
-		const listeners = window._capturedKeyListeners[type] || [];
-		for (const item of listeners) {
+		const listeners = (window._capturedKeyListeners && window._capturedKeyListeners[type]) || [];
+		for (let i = 0; i < listeners.length; i++) {
 			try {
-				item.fn.call(item.target, fakeEvent);
+				listeners.item ? listeners.item(i) : listeners[i].fn.call(listeners[i].target, fakeEvent);
 			} catch (err) {}
 		}
 
-		const nativeEvent = new KeyboardEvent(type, {
-			key: key,
-			code: code,
-			keyCode: keyCode,
-			which: keyCode,
-			bubbles: true,
-			cancelable: true
-		});
-		Object.defineProperty(nativeEvent, 'keyCode', { get: () => keyCode });
-		Object.defineProperty(nativeEvent, 'which', { get: () => keyCode });
-		window.dispatchEvent(nativeEvent);
-		document.dispatchEvent(nativeEvent);
+		const targets = [window, document, document.body, canvas];
+		for (let t = 0; t < targets.length; t++) {
+			const target = targets[t];
+			if (!target) continue;
+
+			const nativeEvent = new KeyboardEvent(type, {
+				key: key,
+				code: code,
+				keyCode: keyCode,
+				which: keyCode,
+				bubbles: true,
+				cancelable: true
+			});
+			Object.defineProperty(nativeEvent, 'keyCode', { get: function() { return keyCode; } });
+			Object.defineProperty(nativeEvent, 'which', { get: function() { return keyCode; } });
+			target.dispatchEvent(nativeEvent);
+
+			if (typeof target['on' + type] === 'function') {
+				try { target['on' + type](fakeEvent); } catch (err) {}
+			}
+		}
 	}
 
-	// 2. Bind on-screen buttons
-	function bindButton(id, keyCode, key, code) {
-		const btn = document.getElementById(id);
-
-		const press = (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			btn.classList.add('pressed');
-			triggerKey(keyCode, key, code, 'keydown');
-		};
-
-		const release = (e) => {
-			e.preventDefault();
-			e.stopPropagation();
-			btn.classList.remove('pressed');
-			triggerKey(keyCode, key, code, 'keyup');
-		};
-
-		btn.addEventListener('touchstart', press, { passive: false });
-		btn.addEventListener('touchend', release, { passive: false });
-		btn.addEventListener('touchcancel', release, { passive: false });
-		btn.addEventListener('mousedown', press);
-		btn.addEventListener('mouseup', release);
-	}
-
-	bindButton('btn-left', 37, 'ArrowLeft', 'ArrowLeft');
-	bindButton('btn-right', 39, 'ArrowRight', 'ArrowRight');
-	bindButton('btn-enter', 13, 'Enter', 'Enter');
-	bindButton('btn-r', 82, 'r', 'KeyR');
-	bindButton('btn-z', 90, 'z', 'KeyZ');
-	bindButton('btn-space', 32, ' ', 'Space');
-
-	// 3. Translate canvas taps into Left Clicks (button: 0)
-	canvas.addEventListener('touchstart', (e) => {
+	function btnDown(e, el, keyCode, key, code) {
 		e.preventDefault();
-		const touch = e.changedTouches[0];
+		e.stopPropagation();
+		el.classList.add('pressed');
+		fireKey(keyCode, key, code, 'keydown');
+		fireKey(keyCode, key, code, 'keypress');
+	}
+
+	function btnUp(e, el, keyCode, key, code) {
+		e.preventDefault();
+		e.stopPropagation();
+		el.classList.remove('pressed');
+		fireKey(keyCode, key, code, 'keyup');
+	}
+
+	// Translate canvas taps into Left Clicks (button: 0)
+	canvas.addEventListener('touchstart', function(e) {
+		e.preventDefault();
+		const touch = e.changedTouches.item(0);
+		if (!touch) return;
 		canvas.dispatchEvent(new MouseEvent('mousemove', {
 			bubbles: true, view: window, clientX: touch.clientX, clientY: touch.clientY
 		}));
@@ -203,9 +226,10 @@
 		}));
 	}, { passive: false });
 
-	canvas.addEventListener('touchend', (e) => {
+	canvas.addEventListener('touchend', function(e) {
 		e.preventDefault();
-		const touch = e.changedTouches[0];
+		const touch = e.changedTouches.item(0);
+		if (!touch) return;
 		canvas.dispatchEvent(new MouseEvent('mouseup', {
 			bubbles: true, cancelable: true, view: window, button: 0, buttons: 0,
 			clientX: touch.clientX, clientY: touch.clientY
@@ -216,8 +240,7 @@
 		}));
 	}, { passive: false });
 
-	// 4. Block pinch-to-zoom without interfering with taps
-	document.addEventListener('gesturestart', (e) => {
+	document.addEventListener('gesturestart', function(e) {
 		e.preventDefault();
 	});
 </script>
