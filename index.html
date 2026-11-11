@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>HTML5b - Battle for Dream Island</title>
+	<title>HTML5bTOUCH - Battle for Dream Island</title>
 	<meta name="description" content="An HTML5 port of the puzzle platformer in the world of Battle for Dream Island."/>
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
@@ -15,6 +15,19 @@
 	<meta name="twitter:card" content="summary_large_image">
 	<link rel="shortcut icon" type="image/x-icon" href="./visuals/blocks/b0001.svg" />
 	<link rel="stylesheet" href="style.css" type="text/css"/>
+
+	<!-- Capture 5b.js keyboard listeners directly before 5b.js loads -->
+	<script>
+		window._capturedKeyListeners = { keydown: [], keyup: [] };
+		const origAddEventListener = EventTarget.prototype.addEventListener;
+		EventTarget.prototype.addEventListener = function(type, listener, options) {
+			if ((type === 'keydown' || type === 'keyup') && typeof listener === 'function') {
+				window._capturedKeyListeners[type].push({ target: this, fn: listener });
+			}
+			return origAddEventListener.call(this, type, listener, options);
+		};
+	</script>
+
 	<script type="text/javascript" src="5b.js"></script>
 	<style>
 		html, body, #cnv {
@@ -104,9 +117,34 @@
 <script>
 	const canvas = document.getElementById('cnv');
 
-	// 1. Create a compatible KeyboardEvent with forced keyCode and which getters
-	function createKeyEvent(type, keyCode, key, code) {
-		const event = new KeyboardEvent(type, {
+	// 1. Trigger captured listeners directly + dispatch standard events
+	function triggerKey(keyCode, key, code, type) {
+		const fakeEvent = {
+			type: type,
+			key: key,
+			code: code,
+			keyCode: keyCode,
+			which: keyCode,
+			charCode: keyCode,
+			repeat: false,
+			shiftKey: false,
+			ctrlKey: false,
+			altKey: false,
+			metaKey: false,
+			target: canvas || document.body,
+			currentTarget: window,
+			preventDefault: () => {},
+			stopPropagation: () => {}
+		};
+
+		const listeners = window._capturedKeyListeners[type] || [];
+		for (const item of listeners) {
+			try {
+				item.fn.call(item.target, fakeEvent);
+			} catch (err) {}
+		}
+
+		const nativeEvent = new KeyboardEvent(type, {
 			key: key,
 			code: code,
 			keyCode: keyCode,
@@ -114,30 +152,10 @@
 			bubbles: true,
 			cancelable: true
 		});
-
-		Object.defineProperty(event, 'keyCode', { get: () => keyCode });
-		Object.defineProperty(event, 'which', { get: () => keyCode });
-		Object.defineProperty(event, 'key', { get: () => key });
-		Object.defineProperty(event, 'code', { get: () => code });
-
-		return event;
-	}
-
-	function triggerKey(keyCode, key, code, type) {
-		if (canvas) canvas.focus();
-
-		const winEvent = createKeyEvent(type, keyCode, key, code);
-		window.dispatchEvent(winEvent);
-		if (typeof window['on' + type] === 'function') window['on' + type](winEvent);
-
-		const docEvent = createKeyEvent(type, keyCode, key, code);
-		document.dispatchEvent(docEvent);
-		if (typeof document['on' + type] === 'function') document['on' + type](docEvent);
-
-		if (canvas) {
-			const cnvEvent = createKeyEvent(type, keyCode, key, code);
-			canvas.dispatchEvent(cnvEvent);
-		}
+		Object.defineProperty(nativeEvent, 'keyCode', { get: () => keyCode });
+		Object.defineProperty(nativeEvent, 'which', { get: () => keyCode });
+		window.dispatchEvent(nativeEvent);
+		document.dispatchEvent(nativeEvent);
 	}
 
 	// 2. Bind on-screen buttons
